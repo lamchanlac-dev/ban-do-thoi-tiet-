@@ -302,31 +302,6 @@
           </div>
         </div>
 
-        <!-- Khu vực Gợi ý du lịch thông minh theo thời tiết thực tế -->
-        <div class="mt-4 pt-3.5 border-t border-slate-800 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-sky-400 flex items-center gap-1.5">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-              <span>Gợi ý trải nghiệm hôm nay</span>
-            </span>
-            <span id="card-weather-mood" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-medium">
-              Lý tưởng
-            </span>
-          </div>
-          
-          <div class="p-3 rounded-2xl bg-slate-800/70 border border-slate-700/70 space-y-1.5 text-xs">
-            <p id="card-smart-activity" class="text-slate-200 leading-relaxed">
-              🧭 Đang phân tích thời tiết...
-            </p>
-            <p id="card-smart-food" class="text-slate-300 leading-relaxed">
-              🍲 Đang tải gợi ý ẩm thực...
-            </p>
-            <p id="card-smart-outfit" class="text-sky-300/90 leading-relaxed font-medium">
-              🎒 Trang phục: Đang cập nhật...
-            </p>
-          </div>
-        </div>
-
         <!-- Chân thẻ: Trạng thái tự động cập nhật mỗi ngày -->
         <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
           <span class="flex items-center gap-1">
@@ -381,100 +356,6 @@
       { id: "cantho", name: "TP. Cần Thơ", type: "Thành phố trực thuộc TW", mergedFrom: "Hợp nhất từ Sóc Trăng + Hậu Giang + TP. Cần Thơ", landmark: "Chợ nổi Cái Răng & Bến Ninh Kiều", wiki: "Can_Tho", lat: 10.0452, lon: 105.7469, oldNames: ["can tho", "soc trang", "hau giang"] },
       { id: "camau", name: "Tỉnh Cà Mau", type: "Tỉnh", mergedFrom: "Hợp nhất từ Bạc Liêu + Cà Mau", landmark: "Mũi Cà Mau & Cánh đồng điện gió Bạc Liêu", wiki: "Ca_Mau_Province", lat: 9.1769, lon: 105.1524, oldNames: ["ca mau", "bac lieu"] }
     ];
-
-    /**
-     * DỮ LIỆU DU LỊCH & ẨM THỰC ĐẶC TRƯNG CHO 34 TỈNH/THÀNH
-     */
-    const TRAVEL_DATA_34 = {
-      hanoi: { outdoor: "dạo quanh Hồ Hoàn Kiếm, khám phá Hoàng thành Thăng Long hoặc đạp xe Hồ Tây", indoor: "tham quan Bảo tàng Lịch sử Quân sự Việt Nam, Văn Miếu hoặc thưởng thức cà phê trứng phố cổ", coldFood: "phở bò nóng hổi, bún chả hoặc chả cá Lã Vọng", hotFood: "bún thang, kem Tràng Tiền hoặc chè sen long nhãn", rainFood: "lẩu riêu cua bắp bò hoặc bánh đúc nóng" },
-      caobang: { outdoor: "chiêm ngưỡng Thác Bản Giốc, khám phá Động Ngườm Ngao và khu di tích Pác Bó", indoor: "tham quan làng rèn Phúc Sen hoặc tìm hiểu văn hóa tại không gian trưng bày địa phương", coldFood: "vịt quay 7 vị, lạp xưởng hun khói và hạt dẻ Trùng Khánh nướng", hotFood: "phở chua Cao Bằng và bánh áp chao", rainFood: "lẩu gà đen thảo mộc ấm bụng" },
-      tuyenquang: { outdoor: "chinh phục Cột cờ Lũng Cú, đèo Mã Pí Lèng hoặc du thuyền trên hồ Na Hang", indoor: "khám phá dinh thự họ Vương, phố cổ Đồng Văn hoặc thưởng trà Shan Tuyết cổ thụ", coldFood: "thắng cố, lẩu gà đen và mèn mén", hotFood: "bánh cuốn chan nước xương và thịt trâu gác bếp", rainFood: "cháo ấu tẩu nóng hổi đặc sản vùng cao" },
-      dienbien: { outdoor: "tham quan Đồi A1, Hầm Đờ Cát và ngắm toàn cảnh cánh đồng Mường Thanh", indoor: "khám phá Bảo tàng Chiến thắng Điện Biên Phủ", coldFood: "xôi nếp nương, gà nướng mắc khén và pa pỉnh tộp", hotFood: "nộm hoa ban và canh bon", rainFood: "lẩu cá sông Đà nóng hổi" },
-      laichau: { outdoor: "săn mây trên đèo Ô Quy Hồ, khám phá cao nguyên Sìn Hồ hoặc bản Sin Suối Hồ", indoor: "tham quan động Pu Sam Cáp và thưởng thức trà cổ thụ", coldFood: "lợn cắp nách nướng, cá hồi vân Sìn Hồ", hotFood: "nộm rau dớn rừng và xôi tím", rainFood: "lẩu cá tầm nóng giữa tiết trời vùng cao" },
-      sonla: { outdoor: "dạo đồi chè trái tim Mộc Châu, thác Dải Yếm hoặc săn mây Tà Xùa", indoor: "tham quan Nhà tù Sơn La hoặc trải nghiệm nông trại bò sữa Mộc Châu", coldFood: "bê chao Mộc Châu, cá suối nướng và cải mèo luộc", hotFood: "sữa tươi Mộc Châu mát lạnh và nộm da trâu", rainFood: "lẩu thắng cố hoặc lẩu gà đồi" },
-      laocai: { outdoor: "chinh phục đỉnh Fansipan, ngắm ruộng bậc thang Sa Pa và Mù Cang Chải", indoor: "nhâm nhi cà phê ngắm mây tại bản Cát Cát hoặc tham quan nhà thờ đá Sa Pa", coldFood: "đồ nướng Sa Pa, lẩu cá hồi và thắng cố", hotFood: "cơm lam, thịt lợn bản nướng và mận Bắc Hà", rainFood: "lẩu cá tầm nóng hổi bên bếp lửa" },
-      thainguyen: { outdoor: "du thuyền Hồ Ba Bể, khám phá động Puông và check-in đồi chè Tân Cương", indoor: "tham quan Bảo tàng Văn hóa các dân tộc Việt Nam và không gian văn hóa trà", coldFood: "cá nướng hồ Ba Bể, khâu nhục và cơm lam", hotFood: "bánh chưng Bờ Đậu và trà xanh Tân Cương ướp lạnh", rainFood: "lẩu gà đồi nấu măng chua" },
-      langson: { outdoor: "chinh phục đỉnh Mẫu Sơn, ngắm cảnh chùa Tam Thanh và núi Tô Thị", indoor: "khám phá động Nhị Thanh và mua sắm tại chợ Đông Kinh", coldFood: "vịt quay Lạng Sơn, khâu nhục và phở chua", hotFood: "bánh cuốn trứng và thạch đen Tràng Định", rainFood: "lẩu vịt quay mắc mật nóng hổi" },
-      quangninh: { outdoor: "du thuyền khám phá Vịnh Hạ Long, tắm biển Bãi Cháy hoặc đảo Cô Tô", indoor: "tham quan Bảo tàng Quảng Ninh hoặc khu di tích Yên Tử", coldFood: "chả mực Hạ Long, bún bề bề nóng hổi", hotFood: "sữa chua trân châu Hạ Long và gỏi sứa Cô Tô", rainFood: "lẩu hải sản tươi sống và sam biển nướng" },
-      bacninh: { outdoor: "vãn cảnh Chùa Dâu, Chùa Bút Tháp và khám phá làng tranh Đông Hồ", indoor: "thưởng thức dân ca Quan qua tại Nhà hát Dân ca Quan họ Bắc Ninh", coldFood: "chim trời nướng, bánh tẻ làng Chờ nóng", hotFood: "bánh phu thê, nem Bùi và bánh đa kế", rainFood: "lẩu cháo chim câu bổ dưỡng" },
-      phutho: { outdoor: "hành hương Đền Hùng, ngắm đồi chè Long Cốc hoặc khám phá thung lũng Mai Châu", indoor: "tham quan Bảo tàng Hùng Vương và trải nghiệm hát Xoan cổ", coldFood: "thịt chua Thanh Sơn, cá lăng sông Đà nướng", hotFood: "cơm nắm lá cọ và bánh tai Phú Thọ", rainFood: "lẩu cá lăng măng chua nóng hổi" },
-      haiphong: { outdoor: "khám phá vịnh Lan Hạ, quần đảo Cát Bà hoặc dạo biển Đồ Sơn", indoor: "foodtour nội thành Hải Phòng và tham quan Nhà hát lớn thành phố", coldFood: "bánh đa cua nóng, bánh mì que cay và nem cua bể", hotFood: "dừa dầm Hải Phòng và giá bể xào", rainFood: "lẩu cua đồng Hải Phòng trứ danh" },
-      hungyen: { outdoor: "tham quan khu di tích Phố Hiến, Chùa Keo và làng nghề hương xạ", indoor: "khám phá không gian văn hóa truyền thống và các đình chùa cổ", coldFood: "bún thang lươn Phố Hiến và gà Đông Tảo hầm sâm", hotFood: "chè sen long nhãn Hưng Yên và bánh cáy", rainFood: "lẩu gà Đông Tảo nóng hổi" },
-      ninhbinh: { outdoor: "ngồi thuyền khám phá Tràng An, Tam Cốc - Bích Động và leo Hang Múa", indoor: "vãn cảnh Chùa Bái Đính và Nhà thờ đá Phát Diệm", coldFood: "thịt dê núi nướng, cơm cháy Ninh Bình và miến lươn", hotFood: "nem nắm Giao Thủy và gỏi cá nhệch", rainFood: "lẩu dê thuốc bắc ấm áp" },
-      thanhhoa: { outdoor: "tắm biển Sầm Sơn, khám phá Pù Luông hoặc tham quan Thành Nhà Hồ", indoor: "khám phá động Từ Thức và không gian văn hóa Lam Kinh", coldFood: "cháo canh Thanh Hóa, bánh cuốn nóng và nem chua nướng", hotFood: "nem chua Thanh Hóa, chè lam Phủ Quảng và hải sản hấp", rainFood: "lẩu hải sản Sầm Sơn nóng hổi" },
-      nghean: { outdoor: "về thăm Làng Sen quê Bác, tắm biển Cửa Lò hoặc ngắm đồi chè Thanh Chương", indoor: "tham quan Bảo tàng Xô Viết Nghệ Tĩnh và thưởng thức dân ca ví giặm", coldFood: "cháo lươn Vinh cay nồng và bánh mướt nóng", hotFood: "mực nhảy nướng Cửa Lò và nhút Thanh Chương", rainFood: "súp lươn Nghệ An nóng hổi ăn kèm bánh mì" },
-      hatinh: { outdoor: "dạo chơi biển Thiên Cầm, khám phá Hồ Kẻ Gỗ hoặc khu di tích Ngã ba Đồng Lộc", indoor: "tham quan Khu lưu niệm Đại thi hào Nguyễn Du", coldFood: "ram bánh mướt, cháo canh Hà Tĩnh", hotFood: "kẹo cu đơ thưởng thức cùng trà xanh và gỏi cá đục", rainFood: "lẩu hải sản Thiên Cầm" },
-      quangtri: { outdoor: "khám phá hang động Phong Nha - Kẻ Bàng, suối Nước Moọc và biển Nhật Lệ", indoor: "viếng Thành cổ Quảng Trị, Địa đạo Vịnh Mốc hoặc tham quan Động Thiên Đường", coldFood: "cháo bánh canh cá lóc và bánh bột lọc nóng", hotFood: "bánh khoái, gỏi cá nghéo và hải sản biển", rainFood: "lẩu cá khoai Quảng Bình nóng hổi" },
-      hue: { outdoor: "tham quan Đại Nội Huế, lăng Tự Đức, đồi Vọng Cảnh và ngắm hoàng hôn sông Hương", indoor: "thưởng thức nhã nhạc cung đình, tham quan Bảo tàng Cổ vật hoặc uống cà phê muối", coldFood: "bún bò Huế nóng hổi, bánh bèo - nậm - lọc", hotFood: "chè hẻm Huế, cơm hến và bánh ép", rainFood: "lẩu bò nhúng mắm ruốc giữa tiết trời mưa Huế" },
-      danang: { outdoor: "tắm biển Mỹ Khê, check-in Cầu Rồng, Bà Nà Hills và dạo phố cổ Hội An", indoor: "khám phá Bảo tàng Điêu khắc Chăm và thưởng thức ẩm thực chợ Cồn", coldFood: "mì Quảng, bánh xèo nem lụi nóng giòn", hotFood: "gỏi cá Nam Ô, bánh tráng cuốn thịt heo và chè xoa xoa hạt lựu", rainFood: "lẩu hải sản tươi sống ven biển" },
-      quangngai: { outdoor: "khám phá đảo Lý Sơn, cổng Tò Vò hoặc nhà rông Kon Klor vùng đại ngàn", indoor: "tham quan Nhà thờ gỗ Kon Tum và khu chứng tích Sơn Mỹ", coldFood: "don Quảng Ngãi nóng, gỏi lá Kon Tum", hotFood: "ram bắp, cá bống sông Trà và tỏi Lý Sơn", rainFood: "lẩu cá kèo hoặc lẩu gà lá é" },
-      gialai: { outdoor: "tắm biển Kỳ Co - Eo Gió, ngắm Biển Hồ Pleiku và hàng thông trăm tuổi", indoor: "khám phá Tháp Đôi Quy Nhơn, Bảo tàng Quang Trung và thưởng thức cà phê phố núi", coldFood: "phở khô Gia Lai, gà nướng cơm lam", hotFood: "bánh hỏi cháo lòng, bún chả cá Quy Nhơn và nem chợ Huyện", rainFood: "lẩu cua biển Quy Nhơn nóng hổi" },
-      khanhhoa: { outdoor: "lặn ngắm san hô vịnh Nha Trang, tắm biển Ninh Chữ và khám phá Hang Rái", indoor: "tham quan Tháp Bà Ponagar, Viện Hải dương học và Tháp Chàm Po Klong Garai", coldFood: "bánh căn hải sản nóng, bún sứa Nha Trang", hotFood: "nem nướng Ninh Hòa, gỏi cá mai và nho tươi Ninh Thuận", rainFood: "lẩu hải sản và bò nướng Lạc Cảnh" },
-      daklak: { outdoor: "chiêm ngưỡng Gành Đá Đĩa, thác Dray Nur và cưỡi voi tại Buôn Đôn", indoor: "khám phá Bảo tàng Thế giới Cà phê và thưởng thức cà phê Buôn Ma Thuột", coldFood: "bánh ướt thịt nướng, gà nướng bản Đôn", hotFood: "mắt cá ngừ đại dương, bún đỏ và bánh hỏi lòng heo", rainFood: "lẩu cá lăng sông Sêrêpốk nóng hổi" },
-      lamdong: { outdoor: "dạo quanh Hồ Xuân Hương Đà Lạt, săn mây đồi Đa Phú hoặc trượt cát Mũi Né", indoor: "thư giãn tại các tiệm cà phê view rừng thông, tham quan Dinh Bảo Đại hoặc làng chài Mũi Né", coldFood: "lẩu gà lá é, bánh tráng nướng và sữa đậu nành nóng Đà Lạt", hotFood: "bánh căn Đà Lạt, gỏi cá mai Phan Thiết và thanh long tươi", rainFood: "lẩu bò Ba Toa nóng hổi giữa sương mù" },
-      dongnai: { outdoor: "trekking Vườn Quốc gia Cát Tiên, chinh phục núi Chứa Chan hoặc hồ Trị An", indoor: "tham quan Văn miếu Trấn Biên và thưởng thức trái cây miệt vườn Long Khánh", coldFood: "gà nướng cơm lam, lẩu lá khổ qua rừng", hotFood: "gỏi bưởi Tân Triều, chả lụi Biên Hòa", rainFood: "lẩu cá lăng hồ Trị An nóng hổi" },
-      tayninh: { outdoor: "đi cáp treo chinh phục đỉnh Núi Bà Đen, khám phá làng nổi Tân Lập", indoor: "tham quan Tòa Thánh Tây Ninh và thưởng thức đặc sản địa phương", coldFood: "bánh canh Trảng Bàng nóng hổi", hotFood: "bánh tráng phơi sương cuốn thịt luộc và muối tôm Tây Ninh", rainFood: "bò tơ Tây Ninh nướng tại bàn" },
-      hcm: { outdoor: "dạo phố đi bộ Nguyễn Huệ, check-in Landmark 81 hoặc tắm biển Vũng Tàu", indoor: "tham quan Dinh Độc Lập, Bảo tàng Mỹ thuật hoặc khám phá các tổ hợp cà phê, trung tâm thương mại", coldFood: "hủ tiếu Nam Vang, phở Sài Gòn và bánh khọt Vũng Tàu nóng giòn", hotFood: "cơm tấm sườn bì chả, gỏi cuốn và cà phê sữa đá", rainFood: "lẩu cá đuối Vũng Tàu hoặc lẩu mắm miền Tây" },
-      dongthap: { outdoor: "tham quan làng hoa Sa Đéc, vườn quốc gia Tràm Chim và cù lao Thới Sơn", indoor: "khám phá nhà cổ Huỳnh Thủy Lê và khu di tích Xẻo Quýt", coldFood: "hủ tiếu Sa Đéc nóng hổi, vịt nướng Sa Đéc", hotFood: "cá lóc nướng trui cuốn lá sen non và hủ tiếu Mỹ Tho", rainFood: "lẩu cá linh bông điên điển đặc trưng mùa nước nổi" },
-      vinhlong: { outdoor: "trải nghiệm chèo xuồng ba lá cù lao An Bình, thăm xứ dừa Bến Tre và ao Bà Om", indoor: "tham quan lò gạch gốm đỏ Mang Thít và thưởng thức đờn ca tài tử miệt vườn", coldFood: "bún nước lèo Trà Vinh, bánh xèo hến cù lao Dài", hotFood: "cá tai tượng chiên xù, đuông dừa và kẹo dừa Bến Tre", rainFood: "lẩu mắm miền Tây hoặc lẩu cá kèo lá giang" },
-      angiang: { outdoor: "khám phá rừng tràm Trà Sư, núi Cấm hoặc lặn ngắm san hô tại đảo ngọc Phú Quốc", indoor: "viếng Miếu Bà Chúa Xứ núi Sam và dạo chợ đêm Dinh Cậu", coldFood: "bún cá Long Xuyên, bún quậy Phú Quốc nóng hổi", hotFood: "gỏi cá trích Phú Quốc, bánh bò thốt nốt và thốt nốt lạnh", rainFood: "lẩu mắm Châu Đốc đậm đà hương vị miền Tây" },
-      cantho: { outdoor: "đi thuyền tham quan chợ nổi Cái Răng sáng sớm, dạo bến Ninh Kiều và vườn cò Bằng Lăng", indoor: "tham quan nhà cổ Bình Thủy, chùa Dơi Sóc Trăng và thưởng thức cà phê ven sông Hậu", coldFood: "bún nước lèo Sóc Trăng, bánh cống nóng giòn", hotFood: "nem nướng Cái Răng, bánh pía Sóc Trăng và trái cây miệt vườn", rainFood: "lẩu vịt nấu chao Cần Thơ trứ danh" },
-      camau: { outdoor: "check-in cột mốc tọa độ Mũi Cà Mau, xuyên rừng đước Năm Căn và ngắm cánh đồng điện gió Bạc Liêu", indoor: "tham quan nhà Công tử Bạc Liêu, khu lưu niệm nhạc sĩ Cao Văn Lầu và thưởng thức đờn ca tài tử", coldFood: "bánh tằm Ngan Dừa, bánh xèo Bạc Liêu nóng giòn", hotFood: "cua biển Cà Mau hấp, ba khía Rạch Gốc và nhãn da bò", rainFood: "lẩu mắm U Minh ăn kèm rau rừng đặc sản" }
-    };
-
-    /**
-     * BỘ NÃO PHÂN TÍCH THỜI TIẾT THỰC TẾ -> TỰ ĐỘNG SINH LỜI KHUYÊN THÔNG MINH
-     */
-    function generateSmartTravelAdvice(provinceId, weatherInfo) {
-      const data = TRAVEL_DATA_34[provinceId] || TRAVEL_DATA_34.hanoi;
-      if (!weatherInfo) {
-        return {
-          mood: "Đang cập nhật",
-          activity: `🧭 Khám phá ${data.outdoor}.`,
-          food: `🍲 Thưởng thức ${data.hotFood}.`,
-          outfit: "🎒 Chuẩn bị trang phục thoải mái phù hợp di chuyển."
-        };
-      }
-
-      const temp = weatherInfo.temp;
-      const code = weatherInfo.code;
-      const isRainy = (code >= 51 && code <= 67) || (code >= 80 && code <= 99);
-      const isFoggy = (code === 45 || code === 48);
-
-      if (isRainy) {
-        return {
-          mood: "🌧️ Trời có mưa",
-          activity: `🧭 Thời tiết có mưa, bạn nên ưu tiên ${data.indoor} để tránh ướt và giữ sức khỏe.`,
-          food: `🍲 Rất hợp để thưởng thức ${data.rainFood}.`,
-          outfit: "🎒 Nhớ mang theo ô (dù), áo khoác chống nước và giày chống trơn trượt."
-        };
-      }
-
-      if (temp < 21) {
-        return {
-          mood: isFoggy ? "🌫️ Se lạnh & Sương mù" : "❄️ Trời se lạnh",
-          activity: `🧭 Tiết trời mát lạnh rất lý tưởng để ${data.outdoor} hoặc săn cảnh đẹp đặc trưng.`,
-          food: `🍲 Nạp năng lượng với ${data.coldFood}.`,
-          outfit: "🧣 Nên mặc áo ấm, áo gió giữ nhiệt và khăn choàng nếu đi vào sáng sớm hoặc tối."
-        };
-      }
-
-      if (temp > 32) {
-        return {
-          mood: "☀️ Nắng nóng",
-          activity: `🧭 Trời nắng khá gắt, nên tham quan ${data.outdoor} vào sáng sớm hoặc chiều mát; buổi trưa ưu tiên ${data.indoor}.`,
-          food: `🍧 Giải nhiệt với ${data.hotFood}.`,
-          outfit: "🕶️ Trang bị kem chống nắng, kính râm, mũ rộng vành và mang theo nước uống."
-        };
-      }
-
-      return {
-        mood: "🌤️ Thời tiết lý tưởng",
-        activity: `🧭 Thời tiết cực kỳ ủng hộ để ${data.outdoor}!`,
-        food: `🍽️ Đừng bỏ lỡ ${data.hotFood} hoặc ${data.coldFood}.`,
-        outfit: "👕 Trang phục thoáng mát, năng động; mang thêm áo khoác mỏng cho buổi tối."
-      };
-    }
 
     // Trạng thái toàn cục
     let weatherDataMap = {};
@@ -531,6 +412,11 @@
       return { desc: "Thời tiết ổn định", icon: "cloud" };
     }
 
+    /**
+     * TẢI DỮ LIỆU NHIỆT ĐỘ THỰC TẾ CỦA NGÀY HÔM NAY CHO TẤT CẢ 34 TỈNH/THÀNH
+     * Sử dụng Open-Meteo API (forecast_days=1, timezone=Asia/Ho_Chi_Minh)
+     * Tự động làm mới khi sang ngày mới.
+     */
     async function fetchTodayWeatherForAllProvinces(forceRefresh = false) {
       const today = getTodayInfo();
       currentDayString = today.key;
@@ -614,6 +500,10 @@
       }
     }
 
+    /**
+     * TẢI DỮ LIỆU ĐỊA GIỚI HÀNH CHÍNH VIỆT NAM VÀ GỘP THÀNH ĐÚNG 34 TỈNH/THÀNH SAU SÁP NHẬP
+     * Ưu tiên GeoJSON 34 tỉnh mới (Post-2025), tự động dự phòng bằng Highcharts TopoJSON & gộp hình học chuẩn xác.
+     */
     async function initVietnamMap() {
       const directGeoJsonSources = [
         "https://raw.githubusercontent.com/nguyenduy1133/Free-GIS-Data/main/Vietnam%20Administrative%20Divisions%20(Post-2025)%20-%20%C4%90%C6%A1n%20v%E1%BB%8B%20h%C3%A0nh%20ch%C3%ADnh%20Vi%E1%BB%87t%20Nam%20(T%E1%BB%AB%202025)/Provinces.geojson"
@@ -651,6 +541,7 @@
 
       let mergedFeatures = [];
 
+      // Bước 1: Thử tải GeoJSON 34 tỉnh/thành trực tiếp
       for (const src of directGeoJsonSources) {
         try {
           const res = await fetch(src);
@@ -690,6 +581,7 @@
         } catch (e) { }
       }
 
+      // Bước 2: Dùng Highcharts / TopoJSON chuẩn và gộp ranh giới 63 -> 34 tỉnh/thành bằng topojson.merge
       if (mergedFeatures.length < 25) {
         for (const src of topoSources) {
           try {
@@ -742,6 +634,7 @@
       document.getElementById("map-loader").classList.add("hidden");
     }
 
+    // Vẽ bản đồ D3.js với khả năng Zoom/Pan mượt mà
     function renderD3Map(features) {
       const container = document.getElementById("map-wrapper");
       const width = container.clientWidth || window.innerWidth;
@@ -761,6 +654,7 @@
       pathGenerator = d3.geoPath().projection(projection);
       g = svg.append("g").attr("class", "map-layer");
 
+      // Thiết lập Zoom & Kéo bản đồ (từ 1x đến 10x)
       zoomBehavior = d3.zoom()
         .scaleExtent([1, 10])
         .on("zoom", (event) => {
@@ -781,6 +675,7 @@
 
       const tooltip = document.getElementById("hover-tooltip");
 
+      // Vẽ 34 tỉnh/thành
       g.selectAll("path")
         .data(features)
         .enter()
@@ -809,6 +704,7 @@
           selectProvince(d.properties.id, d);
         });
 
+      // Nhãn tên 34 tỉnh thành
       g.selectAll("text")
         .data(features)
         .enter()
@@ -825,6 +721,7 @@
         .style("text-shadow", "0 1px 3px rgba(0,0,0,0.95)")
         .text(d => d.properties.name.replace("Tỉnh ", "").replace("TP. ", ""));
 
+      // Đánh dấu quần đảo Hoàng Sa & Trường Sa
       const islands = [
         { name: "Quần đảo Hoàng Sa\n(TP. Đà Nẵng)", coords: [111.5, 16.5] },
         { name: "Quần đảo Trường Sa\n(Tỉnh Khánh Hòa)", coords: [113.0, 10.2] }
@@ -858,6 +755,7 @@
         .text(d => d.line);
     }
 
+    // Cập nhật màu sắc bản đồ theo nhiệt độ mới nhất
     function updateMapColors() {
       if (!g) return;
       g.selectAll(".province-path")
@@ -866,6 +764,11 @@
         .attr("fill", d => getTempColor(weatherDataMap[d.properties.id]?.temp));
     }
 
+    /**
+     * XỬ LÝ KHI NHẤN VÀO BẤT KÌ TỈNH/THÀNH NÀO:
+     * 1. Tô sáng tỉnh được chọn & phóng to nhẹ về vùng đó.
+     * 2. Hiển thị thẻ nhiệt độ ngày hôm nay đè lên bên cạnh bản đồ với hiệu ứng phóng to từ nhỏ lên.
+     */
     function selectProvince(provinceId, featureData = null) {
       selectedProvinceId = provinceId;
 
@@ -903,7 +806,7 @@
       card.classList.add("show");
     }
 
-    // Cập nhật thông tin nhiệt độ và GỢI Ý DU LỊCH THÔNG MINH lên thẻ
+    // Cập nhật thông tin nhiệt độ ngày hôm nay lên thẻ
     function updateWeatherCardUI(provinceId) {
       const prov = PROVINCES_34.find(p => p.id === provinceId);
       if (!prov) return;
@@ -935,15 +838,9 @@
         document.getElementById("card-temp-min").textContent = "--°C";
         document.getElementById("card-temp-max").textContent = "--°C";
       }
-
-      // Đưa gợi ý du lịch thông minh tự động theo thời tiết vào giao diện thẻ
-      const smartAdvice = generateSmartTravelAdvice(provinceId, w);
-      document.getElementById("card-weather-mood").textContent = smartAdvice.mood;
-      document.getElementById("card-smart-activity").textContent = smartAdvice.activity;
-      document.getElementById("card-smart-food").textContent = smartAdvice.food;
-      document.getElementById("card-smart-outfit").textContent = smartAdvice.outfit;
     }
 
+    // Tạo tranh minh họa phong cảnh SVG theo vùng miền làm phương án dự phòng tức thì
     function createFallbackLandmarkSvg(prov) {
       const isMountain = prov.lat > 19.5 || ["lamdong", "daklak", "gialai", "quangngai", "tayninh"].includes(prov.id);
       const isBeach = ["quangninh", "haiphong", "danang", "khanhhoa", "angiang", "hcm", "camau", "quangtri", "hue"].includes(prov.id);
@@ -965,6 +862,7 @@
       return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
     }
 
+    // Tải ảnh thực tế địa danh đặc trưng của từng tỉnh từ Wikipedia/Wikimedia API (hiển thị cực nhanh & ổn định)
     async function loadProvinceLandmarkImage(prov) {
       const imgEl = document.getElementById("card-province-img");
       const loaderEl = document.getElementById("card-image-loader");
@@ -1010,6 +908,7 @@
       applyImage(fallbackUrl);
     }
 
+    // Đóng thẻ nhiệt độ
     function closeWeatherCard() {
       const card = document.getElementById("weather-card");
       card.classList.remove("show");
@@ -1019,6 +918,7 @@
       }
     }
 
+    // Hiển thị danh sách 34 tỉnh trong ngăn kéo
     function renderProvinceList() {
       const container = document.getElementById("province-list-container");
       container.innerHTML = PROVINCES_34.map(prov => {
@@ -1037,6 +937,7 @@
       }).join("");
     }
 
+    // Khởi tạo các sự kiện giao diện
     function setupUIEvents() {
       document.getElementById("close-weather-card").addEventListener("click", closeWeatherCard);
 
@@ -1102,6 +1003,7 @@
         }
       });
 
+      // Tự động kiểm tra bước sang ngày mới mỗi phút để cập nhật nhiệt độ ngày hôm đó
       setInterval(() => {
         const latestDay = getTodayInfo().key;
         if (latestDay !== currentDayString) {
@@ -1110,6 +1012,7 @@
       }, 60 * 1000);
     }
 
+    // Khởi chạy ứng dụng
     window.addEventListener("DOMContentLoaded", async () => {
       lucide.createIcons();
       setupUIEvents();
