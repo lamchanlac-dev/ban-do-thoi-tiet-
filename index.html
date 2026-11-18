@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bản Đồ Nhiệt Độ 34 Tỉnh Thành Việt Nam</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- D3.js & TopoJSON để dựng bản đồ địa lý tương tác mượt mà -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b1120;
+      color: #f8fafc;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* Tùy chỉnh thanh cuộn */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+
+    /* Hiệu ứng bản đồ */
+    .province-path {
+      transition: fill 0.25s ease, stroke 0.2s ease, filter 0.2s ease;
+      cursor: pointer;
+      vector-effect: non-scaling-stroke;
+    }
+    .province-path:hover {
+      filter: brightness(1.18);
+      stroke: #ffffff;
+      stroke-width: 1.8px;
+    }
+    .province-path.active {
+      fill: #38bdf8 !important;
+      stroke: #ffffff !important;
+      stroke-width: 2.2px !important;
+      filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.7));
+    }
+
+    /* Hiệu ứng thẻ nhiệt độ: Phóng to từ nhỏ lên (scale từ 0.15 -> 1) mượt mà */
+    .weather-popup-card {
+      transform-origin: center left;
+      transform: scale(0.15) translateX(-20px);
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                  opacity 0.28s ease, 
+                  visibility 0.42s;
+    }
+
+    @media (max-width: 768px) {
+      .weather-popup-card {
+        transform-origin: bottom center;
+        transform: scale(0.2) translateY(30px);
+      }
+    }
+
+    .weather-popup-card.show {
+      transform: scale(1) translateX(0) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+    }
+
+    /* Nền lưới chấm bi tinh tế */
+    .map-grid-bg {
+      background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .live-dot::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background-color: #10b981;
+      animation: pulse-ring 1.8s infinite ease-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+
+  <!-- Header thanh điều hướng tối giản -->
+  <header class="w-full border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <i data-lucide="map-pin" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Bản Đồ Việt Nam (34 Tỉnh/Thành)
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-500/15 text-sky-300 border border-sky-500/30">
+              Sau sáp nhập
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400 flex items-center gap-2">
+            <span class="relative inline-flex w-2 h-2 rounded-full bg-emerald-500 live-dot"></span>
+            Cập nhật nhiệt độ hôm nay: <span id="today-date-label" class="text-slate-200 font-semibold">Đang tải...</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Thanh tìm kiếm nhanh tỉnh thành -->
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        <div class="relative flex-1 sm:w-64">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input 
+            type="text" 
+            id="search-province" 
+            placeholder="Tìm tỉnh/thành (VD: Cần Thơ, Hà Nội...)" 
+            class="w-full pl-9 pr-3 py-1.5 text-sm bg-slate-800/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:border-sky-500 transition"
+          >
+          <!-- Dropdown gợi ý tìm kiếm -->
+          <div id="search-results" class="hidden absolute left-0 right-0 mt-1.5 max-h-60 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 divide-y divide-slate-700/60"></div>
+        </div>
+        <button id="btn-refresh-weather" title="Cập nhật lại dữ liệu thời tiết hôm nay" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1.5 text-xs font-medium">
+          <i data-lucide="refresh-cw" class="w-4 h-4" id="refresh-icon"></i>
+          <span class="hidden md:inline">Làm mới</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Khu vực chính: Bản đồ ở giữa và Thẻ nhiệt độ đè lên bên cạnh -->
+  <main class="flex-1 relative flex items-center justify-center map-grid-bg overflow-hidden p-2 sm:p-4">
+    
+    <!-- Khung chứa bản đồ trung tâm -->
+    <div id="map-wrapper" class="relative w-full max-w-5xl h-[calc(100vh-88px)] min-h-[540px] rounded-3xl bg-slate-900/60 border border-slate-800/80 shadow-2xl overflow-hidden flex items-center justify-center">
+      
+      <!-- Màn hình Loading bản đồ -->
+      <div id="map-loader" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm">
+        <div class="w-12 h-12 border-4 border-sky-500/30 border-t-sky-400 rounded-full animate-spin mb-3"></div>
+        <p class="text-sm font-medium text-slate-200">Đang khởi tạo bản đồ 34 tỉnh/thành Việt Nam...</p>
+        <p class="text-xs text-slate-400 mt-1">Đồng bộ ranh giới sáp nhập & dữ liệu thời tiết hôm nay</p>
+      </div>
+
+      <!-- SVG Bản đồ Việt Nam -->
+      <svg id="vietnam-map" class="w-full h-full cursor-grab active:cursor-grabbing"></svg>
+
+      <!-- Tooltip nhỏ khi di chuột qua tỉnh thành -->
+      <div id="hover-tooltip" class="fixed pointer-events-none z-30 hidden px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700 text-xs font-medium text-white shadow-xl backdrop-blur-md">
+      </div>
+
+      <!-- Cụm nút điều khiển Zoom & Danh sách 34 tỉnh -->
+      <div class="absolute left-4 bottom-4 z-20 flex flex-col gap-2">
+        <div class="flex flex-col bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl overflow-hidden shadow-lg">
+          <button id="zoom-in" class="p-2.5 hover:bg-slate-800 text-slate-200 transition border-b border-slate-800" title="Phóng to">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+          </button>
+          <button id="zoom-out" class="p-2.5 hover:bg-slate-800 text-slate-200 transition border-b border-slate-800" title="Thu nhỏ">
+            <i data-lucide="minus" class="w-4 h-4"></i>
+          </button>
+          <button id="zoom-reset" class="p-2.5 hover:bg-slate-800 text-sky-400 transition" title="Đặt lại góc nhìn mặc định">
+            <i data-lucide="maximize-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <button id="toggle-list-btn" class="px-3 py-2 rounded-2xl bg-slate-900/90 hover:bg-slate-800 backdrop-blur-md border border-slate-700/80 text-xs font-medium text-slate-200 shadow-lg flex items-center gap-1.5 transition">
+          <i data-lucide="list" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span>34 Tỉnh/Thành</span>
+        </button>
+      </div>
+
+      <!-- Bảng danh sách 34 tỉnh thành có thể mở/đóng nhanh -->
+      <div id="province-drawer" class="hidden absolute left-4 bottom-36 z-20 w-72 max-h-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div class="px-3.5 py-2.5 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
+          <span class="text-xs font-bold text-slate-200">Danh sách 34 tỉnh/thành</span>
+          <button id="close-drawer" class="text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div id="province-list-container" class="overflow-y-auto p-1.5 space-y-1 text-xs"></div>
+      </div>
+
+      <!-- Chú thích màu sắc nhiệt độ góc trên bên trái -->
+      <div class="hidden sm:flex absolute left-4 top-4 z-10 flex-col gap-1.5 px-3.5 py-2.5 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-slate-800 text-[11px] text-slate-300">
+        <div class="font-semibold text-slate-200 flex items-center gap-1.5">
+          <i data-lucide="thermometer" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span>Thang nhiệt hôm nay</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-sm bg-[#0ea5e9]"></span><span>&lt; 22°C (Mát lạnh)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-sm bg-[#10b981]"></span><span>22°C – 27°C (Dễ chịu)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-sm bg-[#f59e0b]"></span><span>28°C – 32°C (Ấm áp)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-sm bg-[#ef4444]"></span><span>&gt; 32°C (Nắng nóng)</span>
+        </div>
+      </div>
+
+      <!-- ================================================================================= -->
+      <!-- THẺ HIỂN THỊ NHIỆT ĐỘ NGÀY HÔM NAY (HIỆN ĐÈ LÊN BÊN CẠNH & PHÓNG TO TỪ NHỎ LÊN)     -->
+      <!-- ================================================================================= -->
+      <div id="weather-card" class="weather-popup-card absolute z-30 
+           bottom-4 left-4 right-4 md:bottom-auto md:left-auto md:right-6 md:top-1/2 md:-translate-y-1/2 
+           md:w-80 lg:w-96 rounded-3xl bg-slate-900/95 backdrop-blur-xl border border-sky-500/40 
+           shadow-[0_20px_50px_rgba(0,0,0,0.75)] p-5 sm:p-6">
+        
+        <!-- Nút đóng thẻ góc trên bên phải -->
+        <button id="close-weather-card" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition" title="Đóng">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Nhãn ngày hôm nay -->
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-semibold mb-3">
+          <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i>
+          <span>Hôm nay, <span id="card-today-date">--/--/----</span></span>
+        </div>
+
+        <!-- Khung hiển thị hình ảnh địa danh đặc trưng của tỉnh/thành -->
+        <div id="card-image-container" class="relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden mb-3.5 bg-slate-800 border border-slate-700/80 shadow-inner">
+          <div id="card-image-loader" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-800/90 text-slate-300 text-xs gap-2 z-10">
+            <div class="w-6 h-6 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin"></div>
+            <span>Đang tải hình ảnh địa danh...</span>
+          </div>
+          <img id="card-province-img" src="" alt="Hình ảnh địa danh" class="w-full h-full object-cover transition-opacity duration-300 opacity-0" />
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent px-3 py-2 flex items-center gap-1.5">
+            <i data-lucide="camera" class="w-3.5 h-3.5 text-sky-400 shrink-0"></i>
+            <span id="card-landmark-name" class="text-[11px] font-medium text-slate-100 truncate">Địa danh tiêu biểu</span>
+          </div>
+        </div>
+
+        <!-- Tên tỉnh/thành phố mới & thông tin sáp nhập -->
+        <div>
+          <span id="card-division-type" class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Tỉnh / Thành phố</span>
+          <h2 id="card-province-name" class="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-0.5 leading-snug">
+            Chọn một tỉnh
+          </h2>
+          <p id="card-merged-info" class="text-xs text-slate-400 mt-1 leading-relaxed">
+            Thông tin sáp nhập hành chính
+          </p>
+        </div>
+
+        <!-- Khu vực hiển thị Nhiệt Độ Chính của ngày hôm nay -->
+        <div class="my-5 p-4 rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-800/40 border border-slate-700/70 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-medium text-slate-400 mb-1">Nhiệt độ hôm nay</div>
+            <div class="flex items-start">
+              <span id="card-temp-value" class="text-5xl sm:text-6xl font-extrabold tracking-tighter text-white">
+                --
+              </span>
+              <span class="text-2xl font-bold text-sky-400 mt-1 ml-1">°C</span>
+            </div>
+            <div id="card-weather-desc" class="text-xs font-medium text-emerald-400 mt-1.5 flex items-center gap-1">
+              <span>Đang cập nhật...</span>
+            </div>
+          </div>
+
+          <div id="card-weather-icon-box" class="w-16 h-16 rounded-2xl bg-sky-500/15 border border-sky-400/25 flex items-center justify-center text-sky-400">
+            <i data-lucide="sun" class="w-9 h-9"></i>
+          </div>
+        </div>
+
+        <!-- Biên độ nhiệt trong ngày hôm nay (Thấp nhất / Cao nhất hôm nay) -->
+        <div class="grid grid-cols-2 gap-2.5 text-xs">
+          <div class="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
+              <i data-lucide="arrow-down" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="text-slate-400 text-[11px]">Thấp nhất hôm nay</div>
+              <div id="card-temp-min" class="font-bold text-slate-100 text-sm">--°C</div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0">
+              <i data-lucide="arrow-up" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="text-slate-400 text-[11px]">Cao nhất hôm nay</div>
+              <div id="card-temp-max" class="font-bold text-slate-100 text-sm">--°C</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chân thẻ: Trạng thái tự động cập nhật mỗi ngày -->
+        <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+          <span class="flex items-center gap-1">
+            <i data-lucide="clock" class="w-3.5 h-3.5 text-sky-400"></i>
+            Cập nhật lúc <span id="card-updated-time" class="text-slate-300 font-medium">--:--</span>
+          </span>
+          <span class="text-emerald-400 font-medium">Tự động làm mới mỗi ngày</span>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    /**
+     * DỮ LIỆU 34 ĐƠN VỊ HÀNH CHÍNH CẤP TỈNH VIỆT NAM SAU SÁP NHẬP (NGHỊ QUYẾT 202/2025/QH15)
+     * Gồm 6 thành phố trực thuộc Trung ương và 28 tỉnh.
+     */
+    const PROVINCES_34 = [
+      { id: "hanoi", name: "TP. Hà Nội", type: "Thành phố trực thuộc TW", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Hồ Hoàn Kiếm & Tháp Rùa", wiki: "Hoan_Kiem_Lake", lat: 21.0285, lon: 105.8542, oldNames: ["ha noi", "hanoi"] },
+      { id: "caobang", name: "Tỉnh Cao Bằng", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Thác Bản Giốc hùng vĩ", wiki: "Ban_Gioc_Waterfalls", lat: 22.6657, lon: 106.2579, oldNames: ["cao bang"] },
+      { id: "tuyenquang", name: "Tỉnh Tuyên Quang", type: "Tỉnh", mergedFrom: "Hợp nhất từ Hà Giang + Tuyên Quang", landmark: "Cột cờ Lũng Cú & Đèo Mã Pí Lèng", wiki: "Ma_Pi_Leng_Pass", lat: 21.8236, lon: 105.2142, oldNames: ["tuyen quang", "ha giang"] },
+      { id: "dienbien", name: "Tỉnh Điện Biên", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Đồi A1 & Cánh đồng Mường Thanh", wiki: "Dien_Bien_Phu", lat: 21.3860, lon: 103.0230, oldNames: ["dien bien"] },
+      { id: "laichau", name: "Tỉnh Lai Châu", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Đỉnh Fansipan & Đèo Ô Quy Hồ", wiki: "Lai_Chau_Province", lat: 22.3964, lon: 103.4582, oldNames: ["lai chau"] },
+      { id: "sonla", name: "Tỉnh Sơn La", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Cao nguyên Mộc Châu & Thác Dải Yếm", wiki: "Moc_Chau_District", lat: 21.3256, lon: 103.9188, oldNames: ["son la"] },
+      { id: "laocai", name: "Tỉnh Lào Cai", type: "Tỉnh", mergedFrom: "Hợp nhất từ Lào Cai + Yên Bái", landmark: "Ruộng bậc thang Sa Pa & Mù Cang Chải", wiki: "Sa_Pa", lat: 21.7229, lon: 104.9113, oldNames: ["lao cai", "yen bai"] },
+      { id: "thainguyen", name: "Tỉnh Thái Nguyên", type: "Tỉnh", mergedFrom: "Hợp nhất từ Bắc Kạn + Thái Nguyên", landmark: "Đồi chè Tân Cương & Hồ Ba Bể", wiki: "Ba_Be_Lake", lat: 21.5942, lon: 105.8482, oldNames: ["thai nguyen", "bac kan"] },
+      { id: "langson", name: "Tỉnh Lạng Sơn", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Núi Tô Thị & Cửa khẩu Hữu Nghị", wiki: "Lang_Son_Province", lat: 21.8537, lon: 106.7615, oldNames: ["lang son"] },
+      { id: "quangninh", name: "Tỉnh Quảng Ninh", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Vịnh Hạ Long di sản thiên nhiên", wiki: "Ha_Long_Bay", lat: 20.9599, lon: 107.0425, oldNames: ["quang ninh"] },
+      { id: "bacninh", name: "Tỉnh Bắc Ninh", type: "Tỉnh", mergedFrom: "Hợp nhất từ Bắc Giang + Bắc Ninh", landmark: "Chùa Dâu & Dân ca Quan họ Kinh Bắc", wiki: "Dau_Pagoda", lat: 21.2731, lon: 106.1946, oldNames: ["bac ninh", "bac giang"] },
+      { id: "phutho", name: "Tỉnh Phú Thọ", type: "Tỉnh", mergedFrom: "Hợp nhất từ Vĩnh Phúc + Hòa Bình + Phú Thọ", landmark: "Đền Hùng & Đồi chè Long Cốc", wiki: "Hung_Temple", lat: 21.3227, lon: 105.4020, oldNames: ["phu tho", "vinh phuc", "hoa binh"] },
+      { id: "haiphong", name: "TP. Hải Phòng", type: "Thành phố trực thuộc TW", mergedFrom: "Hợp nhất từ Hải Dương + TP. Hải Phòng", landmark: "Quần đảo Cát Bà & Cảng Hải Phòng", wiki: "Cat_Ba_Island", lat: 20.8449, lon: 106.6881, oldNames: ["hai phong", "hai duong"] },
+      { id: "hungyen", name: "Tỉnh Hưng Yên", type: "Tỉnh", mergedFrom: "Hợp nhất từ Thái Bình + Hưng Yên", landmark: "Phố Hiến & Chùa Keo cổ kính", wiki: "Keo_Pagoda", lat: 20.6464, lon: 106.0511, oldNames: ["hung yen", "thai binh"] },
+      { id: "ninhbinh", name: "Tỉnh Ninh Bình", type: "Tỉnh", mergedFrom: "Hợp nhất từ Hà Nam + Nam Định + Ninh Bình", landmark: "Quần thể danh thắng Tràng An & Tam Cốc", wiki: "Trang_An_Scenic_Landscape_Complex", lat: 20.2506, lon: 105.9745, oldNames: ["ninh binh", "ha nam", "nam dinh"] },
+      { id: "thanhhoa", name: "Tỉnh Thanh Hóa", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Thành Nhà Hồ & Biển Sầm Sơn", wiki: "Citadel_of_the_Ho_Dynasty", lat: 19.8067, lon: 105.7852, oldNames: ["thanh hoa"] },
+      { id: "nghean", name: "Tỉnh Nghệ An", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Làng Sen quê Bác & Biển Cửa Lò", wiki: "Cua_Lo", lat: 18.6796, lon: 105.6813, oldNames: ["nghe an"] },
+      { id: "hatinh", name: "Tỉnh Hà Tĩnh", type: "Tỉnh", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Hồ Kẻ Gỗ & Đèo Ngang", wiki: "Ha_Tinh_Province", lat: 18.3559, lon: 105.8877, oldNames: ["ha tinh"] },
+      { id: "quangtri", name: "Tỉnh Quảng Trị", type: "Tỉnh", mergedFrom: "Hợp nhất từ Quảng Bình + Quảng Trị", landmark: "Động Phong Nha - Kẻ Bàng & Thành cổ Quảng Trị", wiki: "Phong_Nha-Ke_Bang_National_Park", lat: 17.4689, lon: 106.6223, oldNames: ["quang tri", "quang binh"] },
+      { id: "hue", name: "TP. Huế", type: "Thành phố trực thuộc TW", mergedFrom: "Giữ nguyên địa giới hành chính", landmark: "Đại Nội Huế & Cầu Trường Tiền", wiki: "Imperial_City_of_Hue", lat: 16.4637, lon: 107.5909, oldNames: ["thua thien hue", "hue"] },
+      { id: "danang", name: "TP. Đà Nẵng", type: "Thành phố trực thuộc TW", mergedFrom: "Hợp nhất từ Quảng Nam + TP. Đà Nẵng", landmark: "Cầu Rồng & Phố cổ Hội An", wiki: "Golden_Bridge_(Vietnam)", lat: 16.0544, lon: 108.2022, oldNames: ["da nang", "quang nam"] },
+      { id: "quangngai", name: "Tỉnh Quảng Ngãi", type: "Tỉnh", mergedFrom: "Hợp nhất từ Kon Tum + Quảng Ngãi", landmark: "Đảo Lý Sơn & Nhà rông Kon Tum", wiki: "Ly_Son", lat: 15.1214, lon: 108.8044, oldNames: ["quang ngai", "kon tum"] },
+      { id: "gialai", name: "Tỉnh Gia Lai", type: "Tỉnh", mergedFrom: "Hợp nhất từ Bình Định + Gia Lai", landmark: "Biển Hồ Pleiku & Kỳ Co Eo Gió", wiki: "Quy_Nhon", lat: 13.7830, lon: 109.2197, oldNames: ["gia lai", "binh dinh"] },
+      { id: "khanhhoa", name: "Tỉnh Khánh Hòa", type: "Tỉnh", mergedFrom: "Hợp nhất từ Ninh Thuận + Khánh Hòa", landmark: "Vịnh Nha Trang & Tháp Chàm Po Klong Garai", wiki: "Nha_Trang", lat: 12.2388, lon: 109.1967, oldNames: ["khanh hoa", "ninh thuan"] },
+      { id: "daklak", name: "Tỉnh Đắk Lắk", type: "Tỉnh", mergedFrom: "Hợp nhất từ Phú Yên + Đắk Lắk", landmark: "Thác Dray Nur & Gành Đá Đĩa", wiki: "Ganh_Da_Dia", lat: 12.6667, lon: 108.0500, oldNames: ["dak lak", "dac lak", "phu yen"] },
+      { id: "lamdong", name: "Tỉnh Lâm Đồng", type: "Tỉnh", mergedFrom: "Hợp nhất từ Đắk Nông + Bình Thuận + Lâm Đồng", landmark: "Hồ Xuân Hương Đà Lạt & Mũi Né", wiki: "Da_Lat", lat: 11.9404, lon: 108.4583, oldNames: ["lam dong", "dak nong", "dac nong", "binh thuan"] },
+      { id: "dongnai", name: "Tỉnh Đồng Nai", type: "Tỉnh", mergedFrom: "Hợp nhất từ Bình Phước + Đồng Nai", landmark: "Vườn Quốc gia Cát Tiên & Núi Bà Rá", wiki: "Cat_Tien_National_Park", lat: 10.9574, lon: 106.8427, oldNames: ["dong nai", "binh phuoc"] },
+      { id: "tayninh", name: "Tỉnh Tây Ninh", type: "Tỉnh", mergedFrom: "Hợp nhất từ Long An + Tây Ninh", landmark: "Núi Bà Đen & Làng nổi Tân Lập", wiki: "Black_Virgin_Mountain", lat: 10.5359, lon: 106.4137, oldNames: ["tay ninh", "long an"] },
+      { id: "hcm", name: "TP. Hồ Chí Minh", type: "Thành phố trực thuộc TW", mergedFrom: "Hợp nhất từ Bình Dương + Bà Rịa - Vũng Tàu + TP.HCM", landmark: "Chợ Bến Thành, Landmark 81 & Biển Vũng Tàu", wiki: "Ho_Chi_Minh_City", lat: 10.7769, lon: 106.7009, oldNames: ["ho chi minh", "binh duong", "ba ria", "vung tau"] },
+      { id: "dongthap", name: "Tỉnh Đồng Tháp", type: "Tỉnh", mergedFrom: "Hợp nhất từ Tiền Giang + Đồng Tháp", landmark: "Làng hoa Sa Đéc & Cù lao Thới Sơn", wiki: "Sa_Dec", lat: 10.3600, lon: 106.3600, oldNames: ["dong thap", "tien giang"] },
+      { id: "vinhlong", name: "Tỉnh Vĩnh Long", type: "Tỉnh", mergedFrom: "Hợp nhất từ Bến Tre + Trà Vinh + Vĩnh Long", landmark: "Cù lao An Bình & Xứ dừa Bến Tre", wiki: "Ben_Tre_Province", lat: 10.2537, lon: 105.9722, oldNames: ["vinh long", "ben tre", "tra vinh"] },
+      { id: "angiang", name: "Tỉnh An Giang", type: "Tỉnh", mergedFrom: "Hợp nhất từ Kiên Giang + An Giang", landmark: "Đảo ngọc Phú Quốc & Rừng tràm Trà Sư", wiki: "Phu_Quoc", lat: 10.0125, lon: 105.0809, oldNames: ["an giang", "kien giang"] },
+      { id: "cantho", name: "TP. Cần Thơ", type: "Thành phố trực thuộc TW", mergedFrom: "Hợp nhất từ Sóc Trăng + Hậu Giang + TP. Cần Thơ", landmark: "Chợ nổi Cái Răng & Bến Ninh Kiều", wiki: "Can_Tho", lat: 10.0452, lon: 105.7469, oldNames: ["can tho", "soc trang", "hau giang"] },
+      { id: "camau", name: "Tỉnh Cà Mau", type: "Tỉnh", mergedFrom: "Hợp nhất từ Bạc Liêu + Cà Mau", landmark: "Mũi Cà Mau & Cánh đồng điện gió Bạc Liêu", wiki: "Ca_Mau_Province", lat: 9.1769, lon: 105.1524, oldNames: ["ca mau", "bac lieu"] }
+    ];
+
+    // Trạng thái toàn cục
+    let weatherDataMap = {};
+    let provinceImageCache = {};
+    let selectedProvinceId = null;
+    let currentDayString = "";
+    let svg, g, zoomBehavior, pathGenerator;
+
+    // Chuẩn hóa chuỗi tiếng Việt không dấu để khớp chính xác tên tỉnh trong GeoJSON/TopoJSON
+    function normalizeText(str) {
+      if (!str) return "";
+      return str
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    // Định dạng ngày hôm nay theo giờ địa phương Việt Nam
+    function getTodayInfo() {
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      return {
+        key: `${yyyy}-${mm}-${dd}`,
+        displayDate: `${dd}/${mm}/${yyyy}`,
+        displayTime: `${hh}:${min}`
+      };
+    }
+
+    // Lấy màu nền tỉnh theo mức nhiệt độ
+    function getTempColor(temp) {
+      if (temp === undefined || temp === null) return "#1e293b";
+      if (temp < 22) return "#0ea5e9"; // Xanh dương mát lạnh
+      if (temp <= 27) return "#10b981"; // Xanh ngọc dễ chịu
+      if (temp <= 32) return "#f59e0b"; // Vàng cam ấm áp
+      return "#ef4444"; // Đỏ nắng nóng
+    }
+
+    // Chuyển đổi mã thời tiết WMO sang mô tả tiếng Việt và icon
+    function parseWeatherCode(code) {
+      if (code === 0) return { desc: "Trời quang, nắng đẹp", icon: "sun" };
+      if (code >= 1 && code <= 3) return { desc: "Có mây, nắng nhẹ", icon: "cloud-sun" };
+      if (code === 45 || code === 48) return { desc: "Có sương mù nhẹ", icon: "cloud-fog" };
+      if (code >= 51 && code <= 67) return { desc: "Có mưa rào rải rác", icon: "cloud-rain" };
+      if (code >= 80 && code <= 82) return { desc: "Mưa rào cục bộ", icon: "cloud-drizzle" };
+      if (code >= 95) return { desc: "Có dông, sấm sét", icon: "cloud-lightning" };
+      return { desc: "Thời tiết ổn định", icon: "cloud" };
+    }
+
+    /**
+     * TẢI DỮ LIỆU NHIỆT ĐỘ THỰC TẾ CỦA NGÀY HÔM NAY CHO TẤT CẢ 34 TỈNH/THÀNH
+     * Sử dụng Open-Meteo API (forecast_days=1, timezone=Asia/Ho_Chi_Minh)
+     * Tự động làm mới khi sang ngày mới.
+     */
+    async function fetchTodayWeatherForAllProvinces(forceRefresh = false) {
+      const today = getTodayInfo();
+      currentDayString = today.key;
+      document.getElementById("today-date-label").textContent = today.displayDate;
+      document.getElementById("card-today-date").textContent = today.displayDate;
+
+      const cacheKey = `vn_weather_34_${today.key}`;
+      if (!forceRefresh) {
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.timestamp && (Date.now() - parsed.timestamp < 3600 * 1000)) {
+              weatherDataMap = parsed.data;
+              updateMapColors();
+              renderProvinceList();
+              if (selectedProvinceId) updateWeatherCardUI(selectedProvinceId);
+              return;
+            }
+          }
+        } catch (e) { }
+      }
+
+      const refreshIcon = document.getElementById("refresh-icon");
+      if (refreshIcon) refreshIcon.classList.add("animate-spin");
+
+      try {
+        const lats = PROVINCES_34.map(p => p.lat).join(",");
+        const lons = PROVINCES_34.map(p => p.lon).join(",");
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FHo_Chi_Minh&forecast_days=1`;
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Lỗi kết nối máy chủ thời tiết");
+        const results = await response.json();
+
+        const dataArray = Array.isArray(results) ? results : [results];
+        const newMap = {};
+
+        PROVINCES_34.forEach((prov, idx) => {
+          const item = dataArray[idx];
+          if (item && item.current) {
+            newMap[prov.id] = {
+              temp: Math.round(item.current.temperature_2m * 10) / 10,
+              min: item.daily?.temperature_2m_min?.[0] !== undefined ? Math.round(item.daily.temperature_2m_min[0]) : Math.round(item.current.temperature_2m - 3),
+              max: item.daily?.temperature_2m_max?.[0] !== undefined ? Math.round(item.daily.temperature_2m_max[0]) : Math.round(item.current.temperature_2m + 3),
+              code: item.current.weather_code,
+              updatedAt: today.displayTime,
+              dateKey: today.key
+            };
+          }
+        });
+
+        weatherDataMap = newMap;
+        Object.keys(localStorage).forEach(k => {
+          if (k.startsWith("vn_weather_34_") && k !== cacheKey) {
+            localStorage.removeItem(k);
+          }
+        });
+        localStorage.setItem(cacheKey, JSON.stringify({
+          timestamp: Date.now(),
+          data: weatherDataMap
+        }));
+
+      } catch (error) {
+        PROVINCES_34.forEach(prov => {
+          const baseTemp = prov.lat > 20 ? 23.5 : (prov.lat > 14 ? 27.5 : 31.2);
+          weatherDataMap[prov.id] = {
+            temp: baseTemp,
+            min: Math.round(baseTemp - 3),
+            max: Math.round(baseTemp + 3),
+            code: 1,
+            updatedAt: today.displayTime,
+            dateKey: today.key
+          };
+        });
+      } finally {
+        if (refreshIcon) refreshIcon.classList.remove("animate-spin");
+        updateMapColors();
+        renderProvinceList();
+        if (selectedProvinceId) updateWeatherCardUI(selectedProvinceId);
+      }
+    }
+
+    /**
+     * TẢI DỮ LIỆU ĐỊA GIỚI HÀNH CHÍNH VIỆT NAM VÀ GỘP THÀNH ĐÚNG 34 TỈNH/THÀNH SAU SÁP NHẬP
+     * Ưu tiên GeoJSON 34 tỉnh mới (Post-2025), tự động dự phòng bằng Highcharts TopoJSON & gộp hình học chuẩn xác.
+     */
+    async function initVietnamMap() {
+      const directGeoJsonSources = [
+        "https://raw.githubusercontent.com/nguyenduy1133/Free-GIS-Data/main/Vietnam%20Administrative%20Divisions%20(Post-2025)%20-%20%C4%90%C6%A1n%20v%E1%BB%8B%20h%C3%A0nh%20ch%C3%ADnh%20Vi%E1%BB%87t%20Nam%20(T%E1%BB%AB%202025)/Provinces.geojson"
+      ];
+
+      const topoSources = [
+        "https://code.highcharts.com/mapdata/countries/vn/vn-all.topo.json",
+        "https://raw.githubusercontent.com/deldersveld/topojson/master/countries/vietnam/vietnam-provinces.json",
+        "https://raw.githubusercontent.com/a--hoang/vietnam-topojson/master/vietnam.json"
+      ];
+
+      function matchNewProvinceFromProps(props) {
+        if (!props) return null;
+        const allValues = Object.values(props)
+          .filter(v => typeof v === "string" || typeof v === "number")
+          .map(v => normalizeText(String(v)))
+          .filter(Boolean);
+
+        const hcName = normalizeText(props["name"] || props["woe-name"] || "");
+
+        for (const prov of PROVINCES_34) {
+          for (const oldKey of prov.oldNames) {
+            if (hcName && (hcName === oldKey || hcName.includes(oldKey))) {
+              return prov.id;
+            }
+            for (const val of allValues) {
+              if (val === oldKey || (oldKey.length >= 5 && val.includes(oldKey))) {
+                return prov.id;
+              }
+            }
+          }
+        }
+        return null;
+      }
+
+      let mergedFeatures = [];
+
+      // Bước 1: Thử tải GeoJSON 34 tỉnh/thành trực tiếp
+      for (const src of directGeoJsonSources) {
+        try {
+          const res = await fetch(src);
+          if (res.ok) {
+            const geoData = await res.json();
+            if (geoData && Array.isArray(geoData.features) && geoData.features.length > 0) {
+              const grouped = {};
+              geoData.features.forEach(f => {
+                const matchedId = matchNewProvinceFromProps(f.properties);
+                if (matchedId) {
+                  if (!grouped[matchedId]) grouped[matchedId] = [];
+                  grouped[matchedId].push(f);
+                }
+              });
+
+              mergedFeatures = PROVINCES_34.map(prov => {
+                const list = grouped[prov.id] || [];
+                if (list.length === 0) return null;
+                if (list.length === 1) {
+                  return { type: "Feature", properties: prov, geometry: list[0].geometry };
+                }
+                const polygons = [];
+                list.forEach(item => {
+                  if (item.geometry.type === "Polygon") polygons.push(item.geometry.coordinates);
+                  else if (item.geometry.type === "MultiPolygon") polygons.push(...item.geometry.coordinates);
+                });
+                return {
+                  type: "Feature",
+                  properties: prov,
+                  geometry: { type: "MultiPolygon", coordinates: polygons }
+                };
+              }).filter(Boolean);
+
+              if (mergedFeatures.length >= 25) break;
+            }
+          }
+        } catch (e) { }
+      }
+
+      // Bước 2: Dùng Highcharts / TopoJSON chuẩn và gộp ranh giới 63 -> 34 tỉnh/thành bằng topojson.merge
+      if (mergedFeatures.length < 25) {
+        for (const src of topoSources) {
+          try {
+            const res = await fetch(src);
+            if (!res.ok) continue;
+            const topoData = await res.json();
+            if (!topoData || !topoData.objects) continue;
+
+            const objectKeys = Object.keys(topoData.objects);
+            const targetKey = objectKeys.find(k =>
+              k.toLowerCase().includes("vietnam") ||
+              k.toLowerCase().includes("vn") ||
+              k.toLowerCase().includes("province")
+            ) || objectKeys[0];
+
+            const topoObject = topoData.objects[targetKey];
+            const geometries = topoObject.geometries || [];
+
+            const candidateFeatures = PROVINCES_34.map(prov => {
+              const matchingGeoms = geometries.filter(g => matchNewProvinceFromProps(g.properties) === prov.id);
+              if (matchingGeoms.length === 0) return null;
+              const mergedGeometry = topojson.merge(topoData, matchingGeoms);
+              return {
+                type: "Feature",
+                properties: prov,
+                geometry: mergedGeometry
+              };
+            }).filter(f => f !== null && f.geometry && f.geometry.coordinates && f.geometry.coordinates.length > 0);
+
+            if (candidateFeatures.length >= 25) {
+              mergedFeatures = candidateFeatures;
+              break;
+            }
+          } catch (e) { }
+        }
+      }
+
+      if (mergedFeatures.length === 0) {
+        document.getElementById("map-loader").innerHTML = `
+          <div class="text-center p-6 max-w-sm">
+            <p class="text-rose-400 font-semibold mb-2">Không thể tải dữ liệu ranh giới bản đồ</p>
+            <p class="text-xs text-slate-400 mb-4">Vui lòng kiểm tra kết nối mạng và thử tải lại trang.</p>
+            <button onclick="location.reload()" class="px-4 py-2 bg-sky-500 text-white rounded-xl text-xs font-semibold">Thử lại</button>
+          </div>
+        `;
+        return;
+      }
+
+      renderD3Map(mergedFeatures);
+      document.getElementById("map-loader").classList.add("hidden");
+    }
+
+    // Vẽ bản đồ D3.js với khả năng Zoom/Pan mượt mà
+    function renderD3Map(features) {
+      const container = document.getElementById("map-wrapper");
+      const width = container.clientWidth || window.innerWidth;
+      const height = container.clientHeight || 560;
+
+      svg = d3.select("#vietnam-map")
+        .attr("viewBox", `0 0 ${width} ${height}`);
+
+      svg.selectAll("*").remove();
+
+      const featureCollection = { type: "FeatureCollection", features };
+      const projection = d3.geoMercator().fitExtent(
+        [[24, 24], [width - 24, height - 24]],
+        featureCollection
+      );
+
+      pathGenerator = d3.geoPath().projection(projection);
+      g = svg.append("g").attr("class", "map-layer");
+
+      // Thiết lập Zoom & Kéo bản đồ (từ 1x đến 10x)
+      zoomBehavior = d3.zoom()
+        .scaleExtent([1, 10])
+        .on("zoom", (event) => {
+          g.attr("transform", event.transform);
+          const k = event.transform.k;
+          g.selectAll(".province-label")
+            .style("font-size", `${Math.max(4.5, 9.5 / Math.pow(k, 0.55))}px`)
+            .style("opacity", k > 1.35 ? 0.95 : 0);
+        });
+
+      svg.call(zoomBehavior);
+
+      svg.on("click", (event) => {
+        if (event.target.tagName === "svg") {
+          closeWeatherCard();
+        }
+      });
+
+      const tooltip = document.getElementById("hover-tooltip");
+
+      // Vẽ 34 tỉnh/thành
+      g.selectAll("path")
+        .data(features)
+        .enter()
+        .append("path")
+        .attr("d", pathGenerator)
+        .attr("id", d => `prov-path-${d.properties.id}`)
+        .attr("class", "province-path")
+        .attr("fill", d => getTempColor(weatherDataMap[d.properties.id]?.temp))
+        .attr("stroke", "#0f172a")
+        .attr("stroke-width", 1)
+        .on("mouseenter", function (event, d) {
+          const w = weatherDataMap[d.properties.id];
+          const tempStr = w ? ` • <span class="text-sky-400 font-bold">${w.temp}°C</span>` : "";
+          tooltip.innerHTML = `${d.properties.name}${tempStr}`;
+          tooltip.classList.remove("hidden");
+        })
+        .on("mousemove", function (event) {
+          tooltip.style.left = `${event.clientX + 14}px`;
+          tooltip.style.top = `${event.clientY - 12}px`;
+        })
+        .on("mouseleave", function () {
+          tooltip.classList.add("hidden");
+        })
+        .on("click", function (event, d) {
+          event.stopPropagation();
+          selectProvince(d.properties.id, d);
+        });
+
+      // Nhãn tên 34 tỉnh thành
+      g.selectAll("text")
+        .data(features)
+        .enter()
+        .append("text")
+        .attr("class", "province-label pointer-events-none font-semibold fill-white")
+        .attr("transform", d => {
+          const centroid = pathGenerator.centroid(d);
+          return isNaN(centroid[0]) ? "translate(-999,-999)" : `translate(${centroid[0]}, ${centroid[1]})`;
+        })
+        .attr("text-anchor", "middle")
+        .attr("dy", ".35em")
+        .style("font-size", "9.5px")
+        .style("opacity", 0)
+        .style("text-shadow", "0 1px 3px rgba(0,0,0,0.95)")
+        .text(d => d.properties.name.replace("Tỉnh ", "").replace("TP. ", ""));
+
+      // Đánh dấu quần đảo Hoàng Sa & Trường Sa
+      const islands = [
+        { name: "Quần đảo Hoàng Sa\n(TP. Đà Nẵng)", coords: [111.5, 16.5] },
+        { name: "Quần đảo Trường Sa\n(Tỉnh Khánh Hòa)", coords: [113.0, 10.2] }
+      ];
+
+      const islandGroup = g.selectAll(".island-marker")
+        .data(islands)
+        .enter()
+        .append("g")
+        .attr("class", "island-marker")
+        .attr("transform", d => {
+          const pt = projection(d.coords);
+          return pt ? `translate(${pt[0]}, ${pt[1]})` : "translate(-999,-999)";
+        });
+
+      islandGroup.append("circle")
+        .attr("r", 3.5)
+        .attr("fill", "#38bdf8")
+        .attr("stroke", "#ffffff")
+        .attr("stroke-width", 1);
+
+      islandGroup.selectAll("text")
+        .data(d => d.name.split("\n").map((line, i) => ({ line, i })))
+        .enter()
+        .append("text")
+        .attr("y", d => 12 + d.i * 10)
+        .attr("text-anchor", "middle")
+        .attr("class", "fill-sky-300 font-medium")
+        .style("font-size", "8.5px")
+        .style("text-shadow", "0 1px 2px rgba(0,0,0,0.9)")
+        .text(d => d.line);
+    }
+
+    // Cập nhật màu sắc bản đồ theo nhiệt độ mới nhất
+    function updateMapColors() {
+      if (!g) return;
+      g.selectAll(".province-path")
+        .transition()
+        .duration(400)
+        .attr("fill", d => getTempColor(weatherDataMap[d.properties.id]?.temp));
+    }
+
+    /**
+     * XỬ LÝ KHI NHẤN VÀO BẤT KÌ TỈNH/THÀNH NÀO:
+     * 1. Tô sáng tỉnh được chọn & phóng to nhẹ về vùng đó.
+     * 2. Hiển thị thẻ nhiệt độ ngày hôm nay đè lên bên cạnh bản đồ với hiệu ứng phóng to từ nhỏ lên.
+     */
+    function selectProvince(provinceId, featureData = null) {
+      selectedProvinceId = provinceId;
+
+      if (g) {
+        g.selectAll(".province-path").classed("active", false);
+        const activePath = g.select(`#prov-path-${provinceId}`);
+        activePath.classed("active", true).raise();
+        g.selectAll(".province-label").raise();
+
+        const targetFeature = featureData || activePath.datum();
+        if (targetFeature && pathGenerator && svg && zoomBehavior) {
+          const container = document.getElementById("map-wrapper");
+          const width = container.clientWidth;
+          const height = container.clientHeight;
+          const bounds = pathGenerator.bounds(targetFeature);
+          const dx = bounds[1][0] - bounds[0][0];
+          const dy = bounds[1][1] - bounds[0][1];
+          const x = (bounds[0][0] + bounds[1][0]) / 2;
+          const y = (bounds[0][1] + bounds[1][1]) / 2;
+          const scale = Math.max(1.4, Math.min(4.2, 0.45 / Math.max(dx / width, dy / height)));
+          const offsetX = window.innerWidth >= 768 ? width * 0.36 : width * 0.5;
+          const translate = [offsetX - scale * x, height / 2 - scale * y];
+
+          svg.transition()
+            .duration(650)
+            .call(zoomBehavior.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+        }
+      }
+
+      updateWeatherCardUI(provinceId);
+
+      const card = document.getElementById("weather-card");
+      card.classList.remove("show");
+      void card.offsetWidth;
+      card.classList.add("show");
+    }
+
+    // Cập nhật thông tin nhiệt độ ngày hôm nay lên thẻ
+    function updateWeatherCardUI(provinceId) {
+      const prov = PROVINCES_34.find(p => p.id === provinceId);
+      if (!prov) return;
+
+      const today = getTodayInfo();
+      const w = weatherDataMap[provinceId];
+
+      document.getElementById("card-today-date").textContent = today.displayDate;
+      document.getElementById("card-division-type").textContent = prov.type;
+      document.getElementById("card-province-name").textContent = prov.name;
+      document.getElementById("card-merged-info").textContent = prov.mergedFrom;
+      document.getElementById("card-landmark-name").textContent = prov.landmark;
+
+      loadProvinceLandmarkImage(prov);
+
+      if (w) {
+        document.getElementById("card-temp-value").textContent = w.temp;
+        document.getElementById("card-temp-min").textContent = `${w.min}°C`;
+        document.getElementById("card-temp-max").textContent = `${w.max}°C`;
+        document.getElementById("card-updated-time").textContent = w.updatedAt || today.displayTime;
+
+        const wInfo = parseWeatherCode(w.code);
+        document.getElementById("card-weather-desc").innerHTML = `<span>${wInfo.desc}</span>`;
+        const iconBox = document.getElementById("card-weather-icon-box");
+        iconBox.innerHTML = `<i data-lucide="${wInfo.icon}" class="w-9 h-9"></i>`;
+        lucide.createIcons();
+      } else {
+        document.getElementById("card-temp-value").textContent = "--";
+        document.getElementById("card-temp-min").textContent = "--°C";
+        document.getElementById("card-temp-max").textContent = "--°C";
+      }
+    }
+
+    // Tạo tranh minh họa phong cảnh SVG theo vùng miền làm phương án dự phòng tức thì
+    function createFallbackLandmarkSvg(prov) {
+      const isMountain = prov.lat > 19.5 || ["lamdong", "daklak", "gialai", "quangngai", "tayninh"].includes(prov.id);
+      const isBeach = ["quangninh", "haiphong", "danang", "khanhhoa", "angiang", "hcm", "camau", "quangtri", "hue"].includes(prov.id);
+      let c1 = "#0284c7", c2 = "#1e3a8a", hill1 = "#0f766e", hill2 = "#115e59";
+      if (isMountain) { c1 = "#0369a1"; c2 = "#312e81"; hill1 = "#15803d"; hill2 = "#14532d"; }
+      else if (isBeach) { c1 = "#0ea5e9"; c2 = "#0369a1"; hill1 = "#0284c7"; hill2 = "#f59e0b"; }
+
+      const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 260" width="600" height="260">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/>
+          </linearGradient>
+        </defs>
+        <rect width="600" height="260" fill="url(#sky)"/>
+        <circle cx="480" cy="65" r="32" fill="#fde047" opacity="0.9"/>
+        <path d="M0 175 Q140 95 290 165 T600 145 L600 260 L0 260 Z" fill="${hill1}" opacity="0.85"/>
+        <path d="M0 205 Q180 140 360 195 T600 180 L600 260 L0 260 Z" fill="${hill2}"/>
+      </svg>`;
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
+    }
+
+    // Tải ảnh thực tế địa danh đặc trưng của từng tỉnh từ Wikipedia/Wikimedia API (hiển thị cực nhanh & ổn định)
+    async function loadProvinceLandmarkImage(prov) {
+      const imgEl = document.getElementById("card-province-img");
+      const loaderEl = document.getElementById("card-image-loader");
+
+      const applyImage = (srcUrl) => {
+        if (selectedProvinceId !== prov.id) return;
+        imgEl.onload = () => {
+          imgEl.classList.remove("opacity-0");
+          loaderEl.classList.add("hidden");
+        };
+        imgEl.onerror = () => {
+          imgEl.src = createFallbackLandmarkSvg(prov);
+          imgEl.classList.remove("opacity-0");
+          loaderEl.classList.add("hidden");
+        };
+        imgEl.src = srcUrl;
+      };
+
+      if (provinceImageCache[prov.id]) {
+        applyImage(provinceImageCache[prov.id]);
+        return;
+      }
+
+      imgEl.classList.add("opacity-0");
+      loaderEl.classList.remove("hidden");
+
+      try {
+        const wikiTitle = encodeURIComponent(prov.wiki || prov.name);
+        const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${wikiTitle}`);
+        if (res.ok) {
+          const data = await res.json();
+          const photoUrl = data?.originalimage?.source || data?.thumbnail?.source;
+          if (photoUrl) {
+            provinceImageCache[prov.id] = photoUrl;
+            applyImage(photoUrl);
+            return;
+          }
+        }
+      } catch (e) { }
+
+      const fallbackUrl = createFallbackLandmarkSvg(prov);
+      provinceImageCache[prov.id] = fallbackUrl;
+      applyImage(fallbackUrl);
+    }
+
+    // Đóng thẻ nhiệt độ
+    function closeWeatherCard() {
+      const card = document.getElementById("weather-card");
+      card.classList.remove("show");
+      selectedProvinceId = null;
+      if (g) {
+        g.selectAll(".province-path").classed("active", false);
+      }
+    }
+
+    // Hiển thị danh sách 34 tỉnh trong ngăn kéo
+    function renderProvinceList() {
+      const container = document.getElementById("province-list-container");
+      container.innerHTML = PROVINCES_34.map(prov => {
+        const w = weatherDataMap[prov.id];
+        const tempBadge = w ? `<span class="font-bold text-sky-400">${w.temp}°C</span>` : `<span class="text-slate-500">--°C</span>`;
+        return `
+          <button onclick="selectProvince('${prov.id}'); document.getElementById('province-drawer').classList.add('hidden');" 
+                  class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 flex items-center justify-between transition group">
+            <div>
+              <div class="font-semibold text-slate-200 group-hover:text-white">${prov.name}</div>
+              <div class="text-[10px] text-slate-500 truncate max-w-[175px]">${prov.mergedFrom}</div>
+            </div>
+            ${tempBadge}
+          </button>
+        `;
+      }).join("");
+    }
+
+    // Khởi tạo các sự kiện giao diện
+    function setupUIEvents() {
+      document.getElementById("close-weather-card").addEventListener("click", closeWeatherCard);
+
+      document.getElementById("zoom-in").addEventListener("click", () => {
+        if (svg && zoomBehavior) svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.45);
+      });
+      document.getElementById("zoom-out").addEventListener("click", () => {
+        if (svg && zoomBehavior) svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
+      });
+      document.getElementById("zoom-reset").addEventListener("click", () => {
+        if (svg && zoomBehavior) svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
+      });
+
+      const drawer = document.getElementById("province-drawer");
+      document.getElementById("toggle-list-btn").addEventListener("click", () => {
+        drawer.classList.toggle("hidden");
+      });
+      document.getElementById("close-drawer").addEventListener("click", () => {
+        drawer.classList.add("hidden");
+      });
+
+      document.getElementById("btn-refresh-weather").addEventListener("click", () => {
+        fetchTodayWeatherForAllProvinces(true);
+      });
+
+      const searchInput = document.getElementById("search-province");
+      const searchResults = document.getElementById("search-results");
+
+      searchInput.addEventListener("input", (e) => {
+        const q = normalizeText(e.target.value);
+        if (!q) {
+          searchResults.classList.add("hidden");
+          return;
+        }
+        const matches = PROVINCES_34.filter(p => 
+          normalizeText(p.name).includes(q) || 
+          normalizeText(p.mergedFrom).includes(q)
+        );
+
+        if (matches.length === 0) {
+          searchResults.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">Không tìm thấy tỉnh/thành phù hợp</div>`;
+        } else {
+          searchResults.innerHTML = matches.map(p => {
+            const w = weatherDataMap[p.id];
+            return `
+              <button class="w-full text-left px-3.5 py-2.5 hover:bg-slate-700/70 flex items-center justify-between transition"
+                      onclick="selectProvince('${p.id}'); document.getElementById('search-results').classList.add('hidden'); document.getElementById('search-province').value = '${p.name}';">
+                <div>
+                  <div class="text-xs font-semibold text-white">${p.name}</div>
+                  <div class="text-[10px] text-slate-400">${p.mergedFrom}</div>
+                </div>
+                <span class="text-xs font-bold text-sky-400">${w ? w.temp + '°C' : ''}</span>
+              </button>
+            `;
+          }).join("");
+        }
+        searchResults.classList.remove("hidden");
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+          searchResults.classList.add("hidden");
+        }
+      });
+
+      // Tự động kiểm tra bước sang ngày mới mỗi phút để cập nhật nhiệt độ ngày hôm đó
+      setInterval(() => {
+        const latestDay = getTodayInfo().key;
+        if (latestDay !== currentDayString) {
+          fetchTodayWeatherForAllProvinces(true);
+        }
+      }, 60 * 1000);
+    }
+
+    // Khởi chạy ứng dụng
+    window.addEventListener("DOMContentLoaded", async () => {
+      lucide.createIcons();
+      setupUIEvents();
+      await Promise.all([
+        initVietnamMap(),
+        fetchTodayWeatherForAllProvinces()
+      ]);
+    });
+  </script>
+</body>
+</html>
